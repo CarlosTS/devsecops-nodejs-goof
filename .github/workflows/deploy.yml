@@ -24,52 +24,104 @@ jobs:
 
     steps:
 
+      # -------------------------
+      # 1. CODE CHECKOUT
+      # -------------------------
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      # -------------------------
+      # 2. DEBUG VARIABLES (CLAVE)
+      # -------------------------
+      - name: Debug environment variables
+        run: |
+          echo "AWS_REGION=${{ env.AWS_REGION }}"
+          echo "ECR_REPOSITORY=${{ env.ECR_REPOSITORY }}"
+          echo "ECS_CLUSTER=${{ env.ECS_CLUSTER }}"
+          echo "ECS_SERVICE=${{ env.ECS_SERVICE }}"
+          echo "ECS_TASK_DEFINITION=${{ env.ECS_TASK_DEFINITION }}"
+
+      # -------------------------
+      # 3. AWS AUTH (OIDC)
+      # -------------------------
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # -------------------------
+      # 4. LOGIN ECR
+      # -------------------------
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # -------------------------
+      # 5. BUILD IMAGE
+      # -------------------------
       - name: Build Docker image
         run: |
           docker build -t nodejs-goof .
 
+      # -------------------------
+      # 6. TAG IMAGE
+      # -------------------------
       - name: Tag Docker image
         run: |
           docker tag nodejs-goof:latest \
           ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
 
+      # -------------------------
+      # 7. PUSH IMAGE
+      # -------------------------
       - name: Push Docker image
         run: |
           docker push \
           ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Download current task definition
+      # -------------------------
+      # 8. DEBUG ECR IMAGE URI
+      # -------------------------
+      - name: Debug image URI
+        run: |
+          echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest"
+
+      # -------------------------
+      # 9. DOWNLOAD TASK DEFINITION
+      # -------------------------
+      - name: Download task definition
         run: |
           aws ecs describe-task-definition \
-            --task-definition $ECS_TASK_DEFINITION \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
             --query taskDefinition \
             > task-definition.json
 
-      - name: Render new ECS task definition
-        id: render-task-definition
+      # -------------------------
+      # 10. RENDER TASK DEF
+      # -------------------------
+      - name: Render task definition
+        id: render-task
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
           container-name: nodejs-goof
           image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
 
+      # -------------------------
+      # 11. DEBUG FINAL TASK DEF
+      # -------------------------
+      - name: Debug rendered task definition path
+        run: |
+          cat ${{ steps.render-task.outputs.task-definition }}
+
+      # -------------------------
+      # 12. DEPLOY TO ECS
+      # -------------------------
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
-          task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
-          service: $ECS_SERVICE
-          cluster: $ECS_CLUSTER
+          task-definition: ${{ steps.render-task.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
