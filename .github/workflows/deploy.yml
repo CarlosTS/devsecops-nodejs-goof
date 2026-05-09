@@ -1,71 +1,51 @@
-# For most projects, this workflow file will not need changing; you simply need
-# to commit it to your repository.
-#
-# You may wish to alter this file to override the set of languages analyzed,
-# or to provide custom queries or build logic.
-#
-# ******** NOTE ********
-# We have attempted to detect the languages in your repository. Please check
-# the `language` matrix defined below to confirm you have the correct set of
-# supported CodeQL languages.
-#
-name: "CodeQL"
+name: Security Scan
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [ master ]
-  schedule:
-    - cron: '32 19 * * 4'
+    branches:
+      - main
+      - dev
 
 jobs:
-  analyze:
-    name: Analyze
+  snyk-security:
     runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [ 'javascript' ]
-        # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python' ]
-        # Learn more:
-        # https://docs.github.com/en/free-pro-team@latest/github/finding-security-vulnerabilities-and-errors-in-your-code/configuring-code-scanning#changing-the-languages-that-are-analyzed
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    # Initializes the CodeQL tools for scanning.
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+    - uses: actions/setup-node@v4
       with:
-        languages: ${{ matrix.language }}
-        # If you wish to specify custom queries, you can do so here or in a config file.
-        # By default, queries listed here will override any specified in a config file.
-        # Prefix the list here with "+" to use these queries and those in the config file.
-        # queries: ./path/to/local/query, your-org/your-repo/queries@main
+        node-version: 18
 
-    # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
-    # If this step fails, then you should remove it and run the build manually (see below)
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v1
+    - run: npm install
 
-    # ℹ️ Command-line programs to run using the OS shell.
-    # 📚 https://git.io/JvXDl
+    - name: Install Snyk
+      run: npm install -g snyk
 
-    # ✏️ If the Autobuild fails above, remove it and uncomment the following three lines
-    #    and modify them (or add more) to build your code if your project
-    #    uses a compiled language
+    - name: Authenticate Snyk
+      run: snyk auth $SNYK_TOKEN
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-    #- run: |
-    #   make bootstrap
-    #   make release
+    - name: SCA Scan
+      run: |
+        snyk test \
+          --org=$SNYK_ORG_ID \
+          --severity-threshold=high
+      env:
+        SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+    - name: SAST Scan
+      run: |
+        snyk code test \
+          --org=$SNYK_ORG_ID \
+          --severity-threshold=high
+      env:
+        SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
+
+    - name: Upload results to Snyk
+      run: |
+        snyk monitor \
+          --org=$SNYK_ORG_ID
+      env:
+        SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
