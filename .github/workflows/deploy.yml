@@ -1,51 +1,113 @@
-name: Security Scan
+name: DevSecOps Security Pipeline
 
 on:
   push:
     branches:
       - main
       - dev
+      - qas
+  pull_request:
 
 jobs:
-  snyk-security:
+  security-scans:
+    name: Snyk Security Scans
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
-    - uses: actions/checkout@v4
+      # =========================
+      # Checkout
+      # =========================
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 18
+      # =========================
+      # NodeJS
+      # =========================
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
-    - run: npm install
+      # =========================
+      # Install dependencies
+      # =========================
+      - name: Install dependencies
+        run: npm install
 
-    - name: Install Snyk
-      run: npm install -g snyk
+      # =========================
+      # Install Snyk CLI
+      # =========================
+      - name: Install Snyk CLI
+        run: npm install -g snyk
 
-    - name: Authenticate Snyk
-      run: snyk auth $SNYK_TOKEN
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      # =========================
+      # Authenticate Snyk
+      # =========================
+      - name: Authenticate Snyk
+        run: snyk auth $SNYK_TOKEN
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-    - name: SCA Scan
-      run: |
-        snyk test \
-          --org=$SNYK_ORG_ID \
-          --severity-threshold=high
-      env:
-        SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
+      # =========================
+      # Verify variables (TEMPORARY)
+      # Remove later
+      # =========================
+      - name: Verify Snyk Org
+        run: |
+          if [ -z "$SNYK_ORG_ID" ]; then
+            echo "SNYK_ORG_ID is EMPTY"
+            exit 1
+          else
+            echo "SNYK_ORG_ID detected"
+          fi
+        env:
+          SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
 
-    - name: SAST Scan
-      run: |
-        snyk code test \
-          --org=$SNYK_ORG_ID \
-          --severity-threshold=high
-      env:
-        SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
+      # =========================
+      # SCA - Dependency Scan
+      # =========================
+      - name: Run Snyk Dependency Scan
+        run: |
+          snyk test \
+            --org=$SNYK_ORG_ID \
+            --severity-threshold=high \
+            --json-file-output=snyk-sca.json
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
 
-    - name: Upload results to Snyk
-      run: |
-        snyk monitor \
-          --org=$SNYK_ORG_ID
-      env:
-        SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
+      # =========================
+      # SAST - Code Scan
+      # =========================
+      - name: Run Snyk Code Scan
+        run: |
+          snyk code test \
+            --org=$SNYK_ORG_ID \
+            --severity-threshold=high \
+            --sarif-file-output=snyk-code.sarif
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
+
+      # =========================
+      # Upload SARIF to GitHub Security tab
+      # =========================
+      - name: Upload SARIF report
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-code.sarif
+
+      # =========================
+      # Send snapshot to Snyk dashboard
+      # =========================
+      - name: Monitor Project in Snyk
+        run: |
+          snyk monitor \
+            --org=$SNYK_ORG_ID
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
