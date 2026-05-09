@@ -48,24 +48,9 @@ jobs:
       # Authenticate Snyk
       # =========================
       - name: Authenticate Snyk
-        run: snyk auth $SNYK_TOKEN
+        run: snyk auth snyk_uat.1fcad39e.eyJlIjoxNzg2MDYwMjc0LCJoIjoic255ay5pbyIsImoiOiJBWjRLQU5WMS1tQU9qWXphWC00QzlRIiwicyI6Ik1UelVOdGNQU3phdWM0bHBkNWxLOVEiLCJ0aWQiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0.nLNzW4KxKJY91ZeqBUCSB80GYToGPVNhyJg2IWUqQhAtMMgKF1trx9v139sik9rN_KI_FosG4ViAoQ7qX7gEAQ
         env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
-      # =========================
-      # Verify variables (TEMPORARY)
-      # Remove later
-      # =========================
-      - name: Verify Snyk Org
-        run: |
-          if [ -z "$SNYK_ORG_ID" ]; then
-            echo "SNYK_ORG_ID is EMPTY"
-            exit 1
-          else
-            echo "SNYK_ORG_ID detected"
-          fi
-        env:
-          SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
+          SNYK_TOKEN: snyk_uat.1fcad39e.eyJlIjoxNzg2MDYwMjc0LCJoIjoic255ay5pbyIsImoiOiJBWjRLQU5WMS1tQU9qWXphWC00QzlRIiwicyI6Ik1UelVOdGNQU3phdWM0bHBkNWxLOVEiLCJ0aWQiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0.nLNzW4KxKJY91ZeqBUCSB80GYToGPVNhyJg2IWUqQhAtMMgKF1trx9v139sik9rN_KI_FosG4ViAoQ7qX7gEAQ
 
       # =========================
       # SCA - Dependency Scan
@@ -73,41 +58,9 @@ jobs:
       - name: Run Snyk Dependency Scan
         run: |
           snyk test \
-            --org=$SNYK_ORG_ID \
+            --org=9d37b71d-44f3-4a2a-b19a-44a43372641f \
             --severity-threshold=high \
             --json-file-output=snyk-sca.json
         env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
-
-      # =========================
-      # SAST - Code Scan
-      # =========================
-      - name: Run Snyk Code Scan
-        run: |
-          snyk code test \
-            --org=$SNYK_ORG_ID \
-            --severity-threshold=high \
-            --sarif-file-output=snyk-code.sarif
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
-
-      # =========================
-      # Upload SARIF to GitHub Security tab
-      # =========================
-      - name: Upload SARIF report
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: snyk-code.sarif
-
-      # =========================
-      # Send snapshot to Snyk dashboard
-      # =========================
-      - name: Monitor Project in Snyk
-        run: |
-          snyk monitor \
-            --org=$SNYK_ORG_ID
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
+          SNYK_TOKEN: snyk_uat.1fcad39e.eyJlIjoxNzg2MDYwMjc0LCJoIjoic255ay5pbyIsImoiOiJBWjRLQU5WMS1tQU9qWXphWC00QzlRIiwicyI6Ik1UelVOdGNQU3phdWM0bHBkNWxLOVEiLCJ0aWQiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0.nLNzW4KxKJY91ZeqBUCSB80GYToGPVNhyJg2IWUqQhAtMMgKF1trx9v139sik9rN_KI_FosG4ViAoQ7qX7gEAQ
+          SNYK_ORG_ID: 9d37b71d-44f3-4a2a-b19a-44a43372641f
